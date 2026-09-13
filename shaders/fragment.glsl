@@ -30,7 +30,6 @@ void main() {
     vec3 ro = u_cameraPos;
     vec3 rd = getRayDirection(uv);
 
-    // Dithering per eliminare ogni traccia di banding
     float jitter = random(gl_FragCoord.xy) * 0.08;
     vec3 currentPos = ro + rd * jitter;
     vec3 currentDir = rd;
@@ -41,12 +40,10 @@ void main() {
     float diskInner = u_radius * 1.3;
     float diskOuter = u_radius * 6.5;
     
-    // Aumentiamo i passaggi a 140 per una precisione fluida e morbida
     for (int i = 0; i < 140; i++) {
         vec3 toCenter = u_blackHolePos - currentPos;
         float distToCenter = length(toCenter);
 
-        // 1. COLLISIONE BUCO NERO
         if (distToCenter < u_radius) {
             hitBlackHole = true;
             break;
@@ -56,24 +53,18 @@ void main() {
             break;
         }
 
-        // STEP SIZE MOLTO PIÙ PICCOLO SUL DISCO:
-        // Evita i salti enormi che creavano i denti sui lati
         float distToSurface = max(0.001, distToCenter - u_radius);
         float stepSize = clamp(distToSurface * 0.05, 0.015, 0.6);
 
-        // 2. DISCO DI ACCRESCIMENTO (Sfumatura Gaussiana continua)
         float heightFromEquator = abs(currentPos.y - u_blackHolePos.y);
         
-        // Niente più IF rigidi: usiamo exp() per una sfumatura verticale morbida senza bordi netti
         if (distToCenter > diskInner && distToCenter < diskOuter) {
             float normDist = (distToCenter - diskInner) / (diskOuter - diskInner);
             
-            // Sfumatura d'altezza gaussiana (elimina del tutto le dentellature)
             float verticalFade = exp(-pow(heightFromEquator / 0.18, 2.0));
             float radialDensity = exp(-normDist * 2.5) * sin(normDist * 3.14159265);
             float diskDensity = radialDensity * verticalFade;
 
-            // Palette di colori soffici incandescente
             vec3 coreColor = vec3(4.0, 2.6, 1.4);
             vec3 edgeColor = vec3(2.0, 0.4, 0.02);
             vec3 fireColor = mix(coreColor, edgeColor, normDist);
@@ -81,7 +72,6 @@ void main() {
             diskColorAccum += fireColor * diskDensity * stepSize * 3.5;
         }
 
-        // 3. DEFLESSIONE GRAVITAZIONALE
         vec3 gravityDir = normalize(toCenter);
         float force = (1.5 * u_radius) / (distToCenter * distToCenter);
         currentDir = normalize(currentDir + gravityDir * force * stepSize);

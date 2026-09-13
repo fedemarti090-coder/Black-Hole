@@ -24,10 +24,44 @@ const renderer = new THREE.WebGLRenderer({
 });
 
 renderer.setSize(window.innerWidth, window.innerHeight);
-
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const resolutionScale = 0.7;
+let renderWidth = Math.floor(window.innerWidth * resolutionScale);
+let renderHeight = Math.floor(window.innerHeight * resolutionScale);
+
+const renderTarget = new THREE.WebGLRenderTarget(renderWidth, renderHeight, {
+    minFilter: THREE.LinearFilter,
+    magFilter: THREE.LinearFilter,
+    format: THREE.RGBAFormat,
+});
+
+const postScene = new THREE.Scene();
+const postCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const postMaterial = new THREE.ShaderMaterial({
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        varying vec2 vUv;
+        void main() {
+            gl_FragColor = texture2D(tDiffuse, vUv);
+        }
+    `,
+    uniforms: {
+        tDiffuse: { value: renderTarget.texture }
+    }
+});
+const postPlane = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), postMaterial);
+postScene.add(postPlane);
+// ------------------------------------------------------
 
 let needsUpdate = true;
 function requestRender() {
@@ -59,6 +93,8 @@ const black_hole = new Black_hole(scene, camera, starMapTexture);
 
 async function start_render() {
     await black_hole.init();
+    
+    black_hole.onResize(renderWidth, renderHeight);
 
     function animate() {
         requestAnimationFrame(animate);
@@ -67,18 +103,23 @@ async function start_render() {
 
         if (!isCameraMoving) {
             camera.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.0002);
-            
             controls.update();
             requestRender();
         }
 
         if (isCameraMoving || needsUpdate) {
             black_hole.update();
+
+            renderer.setRenderTarget(renderTarget);
             renderer.render(scene, camera);
+
+            renderer.setRenderTarget(null);
+            renderer.render(postScene, postCamera);
+
             stats.update();
 
             if (!isCameraMoving && !needsUpdate) {
-                // Gestito dal blocco sopra
+
             } else if (!isCameraMoving) {
                 needsUpdate = false;
             }
@@ -92,11 +133,19 @@ start_render();
 //-----------------------------------------------SCENE-----------------------------------------------
 
 window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    camera.aspect = width / height;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    black_hole.onResize(window.innerWidth, window.innerHeight);
+
+    renderWidth = Math.floor(width * resolutionScale);
+    renderHeight = Math.floor(height * resolutionScale);
+    renderTarget.setSize(renderWidth, renderHeight);
+
+    black_hole.onResize(renderWidth, renderHeight);
 
     requestRender();
 });
