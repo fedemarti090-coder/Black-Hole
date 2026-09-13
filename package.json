@@ -1,0 +1,17 @@
+{
+  "name": "__three_clear__",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron main.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "electron": "^44.2.0",
+    "three": "^0.185.1"
+  }
+}
